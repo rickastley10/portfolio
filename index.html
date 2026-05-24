@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>~/rickastley</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&display=swap');
+        
+        :root {
+            --bg: #0a0a0a;
+            --text: #ffffff;
+            --dim: #aaaaaa;
+            --error: #e06c75;
+            --link: #4af626;
+            --user: #ffffff;
+            --host: #ffffff;
+            --path: #ffffff;
+            --ascii-red: #ff3333; /* Red color for ASCII art */
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #050505;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 20px;
+            background: radial-gradient(ellipse at center, #0a0a0a 0%, #000000 80%);
+        }
+        
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15) 0px,
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 100;
+            box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.4);
+        }
+        
+        #terminal {
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--bg);
+            border: 1px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(74, 246, 38, 0.1), 0 0 15px rgba(74, 246, 38, 0.05);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            z-index: 1;
+        }
+        
+        #terminal-header {
+            background: #1a1a1a;
+            padding: 10px 15px;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #333;
+            user-select: none;
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .window-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .close { background: #ff5f56; }
+        .minimize { background: #ffbd2e; }
+        .maximize { background: #27c93f; }
+        
+        #terminal-title {
+            margin-left: 15px;
+            color: #999;
+            font-size: 0.8rem;
+        }
+        
+        #output {
+            padding: 25px;
+            overflow-y: auto;
+            max-height: 85vh;
+            position: relative;
+            scroll-behavior: smooth;
+        }
+        
+        .prompt-line {
+            color: var(--text);
+            margin-bottom: 15px;
+        }
+        .prompt {
+            font-weight: bold;
+            color: var(--text);
+        }
+        .prompt-user { color: var(--text); }
+        .prompt-host { color: var(--text); }
+        .prompt-path { color: var(--text); }
+        
+        .output-block {
+            margin-bottom: 25px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.6;
+            color: var(--text);
+        }
+        
+        /* ASCII Art - RED with glow */
+        .ascii-art {
+            color: var(--ascii-red);
+            font-size: 0.8rem;
+            line-height: 1.2;
+            animation: glowPulseRed 3s ease-in-out infinite;
+        }
+        @keyframes glowPulseRed {
+            0%, 100% { text-shadow: 0 0 5px var(--ascii-red); }
+            50% { text-shadow: 0 0 20px var(--ascii-red), 0 0 40px #ff0000; }
+        }
+        
+        /* Skynet tagline */
+        .skynet-tagline {
+            color: var(--ascii-red);
+            font-size: 0.9rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            animation: flicker 3s ease-in-out infinite;
+        }
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            5% { opacity: 0.8; }
+            10% { opacity: 1; }
+            15% { opacity: 0.9; }
+            20% { opacity: 1; }
+            50% { opacity: 0.7; }
+            60% { opacity: 1; }
+            80% { opacity: 0.9; }
+        }
+        
+        .fade-in-section {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .fade-in-section.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .link {
+            color: var(--link);
+            text-decoration: underline;
+            cursor: pointer;
+            transition: color 0.3s, text-shadow 0.3s;
+        }
+        .link:hover {
+            color: #fff;
+            text-shadow: 0 0 10px var(--link);
+        }
+        
+        .dim { color: var(--dim); }
+        .highlight { color: var(--link); font-weight: bold; }
+        .error-line { color: var(--error); animation: shake 0.5s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        
+        .project-listing {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin: 10px 0;
+        }
+        .project-item {
+            background: rgba(74, 246, 38, 0.1);
+            border: 1px solid rgba(74, 246, 38, 0.3);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            color: var(--text);
+            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0;
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .project-item:hover {
+            background: rgba(74, 246, 38, 0.2);
+            border-color: var(--link);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(74, 246, 38, 0.2);
+        }
+        .project-lang {
+            font-size: 0.7rem;
+            color: var(--dim);
+            margin-left: 6px;
+        }
+        
+        .neofetch-box {
+            display: flex;
+            gap: 25px;
+            align-items: center;
+            margin: 10px 0;
+            color: var(--text);
+        }
+        .neofetch-logo {
+            color: var(--link);
+            line-height: 1.1;
+            animation: float 4s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .neofetch-info {
+            color: var(--text);
+        }
+        
+        hr {
+            border: none;
+            border-top: 1px dashed #555;
+            margin: 25px 0;
+            animation: dashPulse 2s ease-in-out infinite;
+        }
+        @keyframes dashPulse {
+            0%, 100% { border-color: #555; }
+            50% { border-color: var(--link); }
+        }
+        
+        #command-input-container {
+            display: none;
+            align-items: center;
+            margin-bottom: 15px;
+            animation: fadeInUp 0.3s ease-out;
+        }
+        #command-input {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-family: 'Fira Code', monospace;
+            font-size: 1rem;
+            outline: none;
+            flex: 1;
+            caret-color: var(--link);
+        }
+        #command-input::placeholder {
+            color: #555;
+        }
+        
+        .cursor-blink {
+            display: inline-block;
+            width: 10px;
+            height: 20px;
+            background: var(--text);
+            animation: blink 1s infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        #pong-container {
+            display: none;
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 300px;
+            background: #000;
+            border: 2px solid var(--link);
+            margin: 15px 0;
+            box-shadow: 0 0 15px rgba(74, 246, 38, 0.3);
+            overflow: hidden;
+            animation: fadeInUp 0.5s ease-out;
+        }
+        #pong-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #pong-score {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--link);
+            font-family: 'Fira Code', monospace;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        #pong-message {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--dim);
+            font-family: 'Fira Code', monospace;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+        #pong-close {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            color: var(--text);
+            cursor: pointer;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 5;
+            transition: color 0.3s;
+        }
+        #pong-close:hover {
+            color: var(--link);
+        }
+        
+        #output::-webkit-scrollbar {
+            width: 8px;
+        }
+        #output::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        #output::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 4px;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+            font-size: 0.8rem;
+            border-top: 1px solid #333;
+            margin-top: 20px;
+        }
+        footer a {
+            color: var(--link);
+        }
+        
+        .hidden-boot {
+            display: none;
+        }
+        
+        .notification-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--link);
+            border-radius: 50%;
+            margin-left: 8px;
+            animation: blink 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal">
+        <div id="terminal-header">
+            <span class="window-btn close"></span>
+            <span class="window-btn minimize"></span>
+            <span class="window-btn maximize"></span>
+            <span id="terminal-title">rick@portfolio: ~$</span>
+        </div>
+        <div id="output">
+            
+            <!-- BOOT MESSAGES -->
+            <div id="boot-messages">
+                <div class="output-block dim boot-line fade-in-section" style="display:none;">
+[ <span class="highlight">OK</span> ] Starting system log daemon ... <span class="dim">(0.034s)</span>
+                </div>
+                <div class="output-block dim boot-line fade-in-section" style="display:none;">
+[ <span class="highlight">OK</span> ] Loading Python 3.12 environment ... <span class="dim">(0.128s)</span>
+                </div>
+                <div class="output-block dim boot-line fade-in-section" style="display:none;">
+[ <span class="highlight">OK</span> ] Mounting GitHub repositories ... <span class="dim">(0.211s)</span>
+                </div>
+                <div class="output-block dim boot-line fade-in-section" style="display:none;">
+[ <span class="highlight">OK</span> ] Initializing JavaScript ... <span class="dim">(0.083s)</span>
+                </div>
+                <div class="output-block dim boot-line fade-in-section" style="display:none;">
+[ <span class="highlight">OK</span> ] Reached target Graphical Interface.
+                </div>
+                <div class="output-block dim boot-line fade-in-section" style="display:none;">
+System booted in <span class="highlight">2.847s</span> (Total startup time: 4.215s)
+                </div>
+            </div>
+            
+            <div id="main-content" style="display:none;">
+                
+                <!-- BANNER -->
+                <div class="output-block fade-in-section">
+<span class="ascii-art">
+
+
+                  ▄
+                ▄▄▄▄▄  
+              ▄▄▄▄▄▄▄▄▄
+           ▗  ▄▄▄▄▄▄▄▄▄  ▖
+          ▄▄▄   ▄▄▄▄▄   ▄▄▄
+        ▄▄▄▄▄▄▄   ▄   ▄▄▄▄▄▄▄
+      ▄▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄▄
+    ▄▄▄▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄▄▄▄
+  ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+                                       
+</span>
+<span class="skynet-tagline"> POWERED BY SKYNET </span>
+<span class="skynet-tagline"> </span>
+<span class="highlight">Python Enthusiast & Game Developer</span>
+<span class="dim">github.com/rickastley10</span>
+<br>
+
+                </div>
+                
+                <hr class="fade-in-section">
+                
+                <!-- WHOAMI -->
+                <div class="prompt-line fade-in-section">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>whoami
+                </div>
+                <div class="output-block fade-in-section">
+rickastley10 - Python enthusiast, and a game developer.
+                </div>
+                
+                <!-- NEOFETCH -->
+                <div class="prompt-line fade-in-section">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>neofetch
+                </div>
+                <div class="output-block fade-in-section">
+<div class="neofetch-box">
+    <div class="neofetch-logo">
+        <pre>
+    ┌─────────────┐
+    │   rick      │
+    │   ────────  │
+    │   OS: Web   │
+    │   Host: GH  │
+    │   Py: 3.12  │
+    └─────────────┘
+        </pre>
+    </div>
+    <div class="neofetch-info">
+<span class="dim">OS:</span> BrowserOS 26.04<br>
+<span class="dim">Host:</span> GitHub Pages<br>
+<span class="dim">Kernel:</span> JavaScript<br>
+<span class="dim">Shell:</span> bash 5.2<br>
+<span class="dim">Theme:</span> Phosphor Green<br>
+<span class="dim">Python Version:</span> <span class="highlight">3.12.0</span><br>
+
+    </div>
+</div>
+                </div>
+                
+                <hr class="fade-in-section">
+                
+                <!-- CAT SKILLS -->
+                <div class="prompt-line fade-in-section">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>cat skills.txt
+                </div>
+                <div class="output-block fade-in-section">
+<span class="highlight">Languages:</span> Python, C, HTML/CSS, JavaScript<br>
+<span class="highlight">Tools:</span> Git, Linux, SDL2<br>
+<span class="highlight">Interests:</span> Game Dev, CLI tools, Retro Computing
+                </div>
+                
+                <!-- CAT ABOUT -->
+                <div class="prompt-line fade-in-section">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>cat about.txt
+                </div>
+                <div class="output-block fade-in-section">
+Python enthusiast and game developer. Loves low-level tinkering with C and building fun web games. Always exploring new ways to create interactive experiences.
+                </div>
+                
+                <hr class="fade-in-section">
+                
+                <!-- LS PROJECTS -->
+                <div class="prompt-line fade-in-section">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>ls projects/
+                </div>
+                <div class="output-block fade-in-section">
+                    <div class="project-listing" id="project-list">
+                        <a href="https://github.com/rickastley10/updated-oxo-on-c" target="_blank" class="project-item link" style="animation-delay: 0.1s;">updated-oxo-on-c <span class="project-lang">[C]</span></a>
+                        <a href="https://github.com/rickastley10/snake" target="_blank" class="project-item link" style="animation-delay: 0.2s;">snake <span class="project-lang">[Python]</span></a>
+                        <a href="https://github.com/rickastley10/html-snake" target="_blank" class="project-item link" style="animation-delay: 0.3s;">html-snake <span class="project-lang">[HTML]</span></a>
+                        <a href="https://github.com/rickastley10/pingpong" target="_blank" class="project-item link" style="animation-delay: 0.4s;">pingpong <span class="project-lang">[HTML]</span></a>
+                        <a href="https://github.com/rickastley10/tetris-py" target="_blank" class="project-item link" style="animation-delay: 0.5s;">tetris-py <span class="project-lang">[Python]</span></a>
+                        <a href="https://github.com/rickastley10/breakout-py" target="_blank" class="project-item link" style="animation-delay: 0.6s;">breakout-py <span class="project-lang">[Python]</span></a>
+                        <a href="https://github.com/rickastley10/2048-python" target="_blank" class="project-item link" style="animation-delay: 0.7s;">2048-python <span class="project-lang">[Python]</span></a>
+                        <a href="https://github.com/rickastley10/lua-pong" target="_blank" class="project-item link" style="animation-delay: 0.8s;">lua-pong <span class="project-lang">[Lua]</span></a>
+                        <a href="https://github.com/rickastley10/minimal-pong" target="_blank" class="project-item link" style="animation-delay: 0.9s;">minimal-pong <span class="project-lang">[JS]</span></a>
+                    </div>
+                </div>
+                
+                <hr class="fade-in-section">
+                
+                <!-- DATE -->
+                <div class="prompt-line fade-in-section">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>date
+                </div>
+                <div class="output-block fade-in-section">
+<script>document.write(new Date().toString());</script>
+                </div>
+                
+                <!-- AUTO-LAUNCH PONG MESSAGE -->
+                <div id="pong-launch-message" class="output-block fade-in-section" style="display:none;">
+<span class="highlight">./pong</span>
+
+<span class="dim">W/S to move paddle | AI opponent | Esc to close</span>
+                </div>
+                
+                <!-- PONG GAME CONTAINER -->
+                <div id="pong-container">
+                    <span id="pong-close" title="Close game (Esc)">✕</span>
+                    <div id="pong-score">0 - 0</div>
+                    <canvas id="pong-canvas"></canvas>
+                    <div id="pong-message">W/S to move | AI opponent | Esc to close</div>
+                </div>
+                
+                <!-- COMMAND INPUT -->
+                <div id="command-input-container">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>
+                    <input type="text" id="command-input" placeholder="type 'help' for commands..." autofocus>
+                </div>
+                
+                <!-- FINAL PROMPT -->
+                <div class="prompt-line fade-in-section" style="margin-top: 20px;" id="final-prompt">
+                    <span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span><span class="cursor-blink"></span>
+                    <span class="notification-dot" id="scroll-hint" style="display:none;" title="Secret found!"></span>
+                </div>
+            </div>
+            
+        </div>
+        <footer>
+            <p>© <script>document.write(new Date().getFullYear());</script> Rick Astley | <a href="https://github.com/rickastley10" target="_blank">github/rickastley10</a></p>
+        </footer>
+    </div>
+
+    <script>
+        // Staggered boot animation
+        document.addEventListener('DOMContentLoaded', () => {
+            const bootLines = document.querySelectorAll('.boot-line');
+            const mainContent = document.getElementById('main-content');
+            const outputDiv = document.getElementById('output');
+            
+            outputDiv.scrollTop = 0;
+            window.scrollTo(0, 0);
+            
+            let delay = 0;
+            bootLines.forEach((line, index) => {
+                setTimeout(() => {
+                    line.style.display = 'block';
+                    setTimeout(() => line.classList.add('visible'), 10);
+                }, delay);
+                delay += 1000;
+            });
+            
+            setTimeout(() => {
+                mainContent.style.display = 'block';
+                initPong();
+                initCommandInput();
+                initScrollDetection();
+                initFadeInObserver();
+            }, delay + 500);
+        });
+
+        function initFadeInObserver() {
+            const sections = document.querySelectorAll('.fade-in-section');
+            const outputDiv = document.getElementById('output');
+            
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, {
+                root: outputDiv,
+                threshold: 0.1,
+                rootMargin: '0px 0px -20px 0px'
+            });
+            
+            sections.forEach(section => observer.observe(section));
+        }
+
+        let hasScrolledToBottom = false;
+        let pongAutoLaunched = false;
+        
+        function initScrollDetection() {
+            const outputDiv = document.getElementById('output');
+            const scrollHint = document.getElementById('scroll-hint');
+            const launchMessage = document.getElementById('pong-launch-message');
+            
+            function checkScroll() {
+                const scrollBottom = outputDiv.scrollHeight - outputDiv.scrollTop - outputDiv.clientHeight;
+                
+                if (scrollBottom <= 30 && !hasScrolledToBottom) {
+                    hasScrolledToBottom = true;
+                    scrollHint.style.display = 'inline-block';
+                    
+                    launchMessage.style.display = 'block';
+                    setTimeout(() => launchMessage.classList.add('visible'), 10);
+                    
+                    if (!pongAutoLaunched) {
+                        pongAutoLaunched = true;
+                        setTimeout(() => {
+                            startPongGame();
+                            setTimeout(() => {
+                                document.getElementById('pong-container').scrollIntoView({ behavior: 'smooth' });
+                            }, 100);
+                        }, 800);
+                    }
+                }
+            }
+            
+            outputDiv.addEventListener('scroll', checkScroll);
+            
+            setTimeout(checkScroll, 1000);
+            setTimeout(checkScroll, 3000);
+            setTimeout(checkScroll, 6000);
+            
+            window.addEventListener('resize', checkScroll);
+        }
+
+        function initCommandInput() {
+            const cmdContainer = document.getElementById('command-input-container');
+            const cmdInput = document.getElementById('command-input');
+            const finalPrompt = document.getElementById('final-prompt');
+            const outputDiv = document.getElementById('output');
+            
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || pongGameActive) return;
+                
+                if (e.key.length === 1 || e.key === 'Backspace') {
+                    cmdContainer.style.display = 'flex';
+                    finalPrompt.style.display = 'none';
+                    cmdInput.focus();
+                }
+            });
+            
+            cmdInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const command = cmdInput.value.trim();
+                    
+                    if (command === './pong') {
+                        if (!pongAutoLaunched) {
+                            startPongGame();
+                            const cmdLine = document.createElement('div');
+                            cmdLine.className = 'prompt-line fade-in-section';
+                            cmdLine.innerHTML = `<span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>${command}`;
+                            outputDiv.insertBefore(cmdLine, document.getElementById('pong-container'));
+                            setTimeout(() => cmdLine.classList.add('visible'), 10);
+                            
+                            const resultLine = document.createElement('div');
+                            resultLine.className = 'output-block fade-in-section';
+                            resultLine.innerHTML = '🎮 Launching Pong... (<span class="highlight">W/S</span> to move, <span class="highlight">AI opponent</span>)';
+                            outputDiv.insertBefore(resultLine, document.getElementById('pong-container'));
+                            setTimeout(() => resultLine.classList.add('visible'), 10);
+                        } else {
+                            document.getElementById('pong-container').style.display = 'block';
+                            document.getElementById('pong-container').scrollIntoView({ behavior: 'smooth' });
+                        }
+                    } else if (command === 'clear') {
+                        cmdInput.value = '';
+                        cmdContainer.style.display = 'none';
+                        finalPrompt.style.display = 'block';
+                    } else if (command === 'help') {
+                        const cmdLine = document.createElement('div');
+                        cmdLine.className = 'prompt-line fade-in-section';
+                        cmdLine.innerHTML = `<span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>${command}`;
+                        outputDiv.insertBefore(cmdLine, document.getElementById('command-input-container'));
+                        setTimeout(() => cmdLine.classList.add('visible'), 10);
+                        
+                        const helpLine = document.createElement('div');
+                        helpLine.className = 'output-block fade-in-section';
+                        helpLine.innerHTML = `Available commands:<br>  <span class="highlight">./pong</span> - Play Pong vs AI (or just scroll to bottom!)<br>  <span class="highlight">help</span> - Show this message<br>  <span class="highlight">clear</span> - Hide the input line`;
+                        outputDiv.insertBefore(helpLine, document.getElementById('command-input-container'));
+                        setTimeout(() => helpLine.classList.add('visible'), 10);
+                        outputDiv.scrollTop = outputDiv.scrollHeight;
+                    } else if (command) {
+                        const cmdLine = document.createElement('div');
+                        cmdLine.className = 'prompt-line fade-in-section';
+                        cmdLine.innerHTML = `<span class="prompt"><span class="prompt-user">rick</span>@<span class="prompt-host">portfolio</span>:<span class="prompt-path">~</span>$ </span>${command}`;
+                        outputDiv.insertBefore(cmdLine, document.getElementById('command-input-container'));
+                        setTimeout(() => cmdLine.classList.add('visible'), 10);
+                        
+                        const errorLine = document.createElement('div');
+                        errorLine.className = 'output-block error-line fade-in-section';
+                        errorLine.textContent = `bash: ${command}: command not found. Type 'help' for available commands.`;
+                        outputDiv.insertBefore(errorLine, document.getElementById('command-input-container'));
+                        setTimeout(() => errorLine.classList.add('visible'), 10);
+                        outputDiv.scrollTop = outputDiv.scrollHeight;
+                    }
+                    
+                    cmdInput.value = '';
+                }
+                
+                if (e.key === 'Escape' && cmdInput.value === '') {
+                    cmdContainer.style.display = 'none';
+                    finalPrompt.style.display = 'block';
+                }
+            });
+            
+            cmdInput.addEventListener('blur', () => {
+                setTimeout(() => {
+                    if (cmdInput.value === '' && !pongGameActive) {
+                        cmdContainer.style.display = 'none';
+                        finalPrompt.style.display = 'block';
+                    }
+                }, 200);
+            });
+        }
+
+        // ---------- PONG GAME ----------
+        let pongGameActive = false;
+        let pongAnimationId = null;
+        let pongCanvas, pongCtx, pongContainer, pongScoreDisplay;
+        let ball, paddleLeft, paddleRight, score, keys;
+        
+        function initPong() {
+            pongContainer = document.getElementById('pong-container');
+            pongCanvas = document.getElementById('pong-canvas');
+            pongCtx = pongCanvas.getContext('2d');
+            pongScoreDisplay = document.getElementById('pong-score');
+            
+            document.getElementById('pong-close').addEventListener('click', closePong);
+            document.addEventListener('keydown', handlePongKeyDown);
+            document.addEventListener('keyup', handlePongKeyUp);
+        }
+        
+        function startPongGame() {
+            if (pongGameActive) return;
+            
+            pongGameActive = true;
+            pongContainer.style.display = 'block';
+            
+            pongCanvas.width = pongContainer.clientWidth;
+            pongCanvas.height = pongContainer.clientHeight;
+            
+            ball = {
+                x: pongCanvas.width / 2,
+                y: pongCanvas.height / 2,
+                radius: 8,
+                speedX: 2.5,
+                speedY: 1.5,
+                color: '#4af626'
+            };
+            
+            paddleLeft = {
+                x: 20,
+                y: pongCanvas.height / 2 - 40,
+                width: 12,
+                height: 80,
+                color: '#4af626'
+            };
+            
+            paddleRight = {
+                x: pongCanvas.width - 32,
+                y: pongCanvas.height / 2 - 40,
+                width: 12,
+                height: 80,
+                color: '#4af626'
+            };
+            
+            score = { left: 0, right: 0 };
+            keys = {};
+            
+            updatePongScore();
+            gameLoop();
+        }
+        
+        function closePong() {
+            pongGameActive = false;
+            pongContainer.style.display = 'none';
+            if (pongAnimationId) {
+                cancelAnimationFrame(pongAnimationId);
+                pongAnimationId = null;
+            }
+            score = { left: 0, right: 0 };
+            updatePongScore();
+        }
+        
+        function handlePongKeyDown(e) {
+            if (!pongGameActive) return;
+            
+            if (e.key === 'w' || e.key === 'W') {
+                keys['w'] = true;
+                e.preventDefault();
+            }
+            if (e.key === 's' || e.key === 'S') {
+                keys['s'] = true;
+                e.preventDefault();
+            }
+            if (e.key === 'Escape') {
+                closePong();
+                e.preventDefault();
+            }
+        }
+        
+        function handlePongKeyUp(e) {
+            if (!pongGameActive) return;
+            if (e.key === 'w' || e.key === 'W') keys['w'] = false;
+            if (e.key === 's' || e.key === 'S') keys['s'] = false;
+        }
+        
+        function updatePaddles() {
+            if (keys['w'] && paddleLeft.y > 0) {
+                paddleLeft.y -= 4;
+            }
+            if (keys['s'] && paddleLeft.y < pongCanvas.height - paddleLeft.height) {
+                paddleLeft.y += 4;
+            }
+            
+            const aiSpeed = 2.5;
+            const paddleCenter = paddleRight.y + paddleRight.height / 2;
+            const ballY = ball.y;
+            
+            if (paddleCenter < ballY - 15) {
+                paddleRight.y += aiSpeed;
+            } else if (paddleCenter > ballY + 15) {
+                paddleRight.y -= aiSpeed;
+            }
+            
+            if (paddleRight.y < 0) paddleRight.y = 0;
+            if (paddleRight.y > pongCanvas.height - paddleRight.height) {
+                paddleRight.y = pongCanvas.height - paddleRight.height;
+            }
+        }
+        
+        function updateBall() {
+            ball.x += ball.speedX;
+            ball.y += ball.speedY;
+            
+            if (ball.y - ball.radius <= 0 || ball.y + ball.radius >= pongCanvas.height) {
+                ball.speedY = -ball.speedY;
+            }
+            
+            if (ball.x - ball.radius <= paddleLeft.x + paddleLeft.width &&
+                ball.y >= paddleLeft.y &&
+                ball.y <= paddleLeft.y + paddleLeft.height) {
+                ball.speedX = -ball.speedX;
+                ball.x = paddleLeft.x + paddleLeft.width + ball.radius;
+                let deltaY = ball.y - (paddleLeft.y + paddleLeft.height/2);
+                ball.speedY = deltaY * 0.15;
+            }
+            
+            if (ball.x + ball.radius >= paddleRight.x &&
+                ball.y >= paddleRight.y &&
+                ball.y <= paddleRight.y + paddleRight.height) {
+                ball.speedX = -ball.speedX;
+                ball.x = paddleRight.x - ball.radius;
+                let deltaY = ball.y - (paddleRight.y + paddleRight.height/2);
+                ball.speedY = deltaY * 0.15;
+            }
+            
+            if (ball.x - ball.radius <= 0) {
+                score.right++;
+                updatePongScore();
+                resetBall();
+            }
+            if (ball.x + ball.radius >= pongCanvas.width) {
+                score.left++;
+                updatePongScore();
+                resetBall();
+            }
+        }
+        
+        function resetBall() {
+            ball.x = pongCanvas.width / 2;
+            ball.y = pongCanvas.height / 2;
+            ball.speedX = (Math.random() > 0.5 ? 2.5 : -2.5);
+            ball.speedY = (Math.random() * 2) - 1;
+        }
+        
+        function updatePongScore() {
+            if (score) {
+                pongScoreDisplay.textContent = `${score.left} - ${score.right}`;
+            }
+        }
+        
+        function draw() {
+            pongCtx.clearRect(0, 0, pongCanvas.width, pongCanvas.height);
+            
+            pongCtx.strokeStyle = '#4af626';
+            pongCtx.lineWidth = 2;
+            pongCtx.setLineDash([10, 10]);
+            pongCtx.beginPath();
+            pongCtx.moveTo(pongCanvas.width/2, 0);
+            pongCtx.lineTo(pongCanvas.width/2, pongCanvas.height);
+            pongCtx.stroke();
+            pongCtx.setLineDash([]);
+            
+            pongCtx.fillStyle = ball.color;
+            pongCtx.beginPath();
+            pongCtx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            pongCtx.fill();
+            
+            pongCtx.fillStyle = paddleLeft.color;
+            pongCtx.fillRect(paddleLeft.x, paddleLeft.y, paddleLeft.width, paddleLeft.height);
+            pongCtx.fillStyle = paddleRight.color;
+            pongCtx.fillRect(paddleRight.x, paddleRight.y, paddleRight.width, paddleRight.height);
+        }
+        
+        function gameLoop() {
+            if (!pongGameActive) return;
+            updatePaddles();
+            updateBall();
+            draw();
+            pongAnimationId = requestAnimationFrame(gameLoop);
+        }
+    </script>
+</body>
+</html>
